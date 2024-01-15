@@ -21,7 +21,7 @@ def inference_once(args):
     """
     disable_torch_init()
     model_name = args.model_path.split('/')[-1]
-    tokenizer, model, image_processor, context_len = load_pretrained_model(args.model_path)
+    tokenizer, model, image_processor, context_len = load_pretrained_model(args.model_path, args.load_8bit, args.load_4bit)
 
     images = [Image.open(args.image_file).convert("RGB")] #PIL Image 318*500
     images_tensor = process_images(images, image_processor, model.config).to(model.device, dtype=torch.float16) #返回处理完毕的（resize crop等）图片tensor
@@ -67,6 +67,8 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--num_beams", type=int, default=1)
     parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument("--load_8bit", type=bool, default=False)
+    parser.add_argument("--load_4bit", type=bool, default=False)
     args = parser.parse_args()
 
     inference_once(args)

@@ -12,7 +12,7 @@ class MobileVLMMetaModel:
 
     def __init__(self, config):
         super(MobileVLMMetaModel, self).__init__(config)
-        if hasattr(config, "mm_vision_tower"):  
+        if hasattr(config, "mm_vision_tower"):
             self.vision_tower = build_vision_tower(config, delay_load=False) #delay_load 创建模型的时候就loadpretrain模型
             self.mm_projector = build_vision_projector(config)
 
@@ -247,7 +247,7 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         )
     else:
         kwargs['torch_dtype'] = torch.float16
-    
+
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
     model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs) #导入模型和tokenizer
 
