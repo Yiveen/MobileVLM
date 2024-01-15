@@ -14,18 +14,23 @@ from mobilevlm.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
 
 def inference_once(args):
 
+    """
+    disable_torch_init(): 修改PyTorch中某些层的默认初始化行为，以加快模型创建的速度.
+    将Linear层的reset_parameters方法替换为一个什么也不做的lambda函数。通常，reset_parameters方法用于初始化层的权重和偏置
+    修改了PyTorch的LayerNorm层，将其reset_parameters方法替换为一个空的lambda函数。LayerNorm层通常用于归一化神经网络中的激活值
+    """
     disable_torch_init()
     model_name = args.model_path.split('/')[-1]
     tokenizer, model, image_processor, context_len = load_pretrained_model(args.model_path)
 
-    images = [Image.open(args.image_file).convert("RGB")]
-    images_tensor = process_images(images, image_processor, model.config).to(model.device, dtype=torch.float16)
-
-    conv = conv_templates[args.conv_mode].copy()
-    conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n" + args.prompt)
-    conv.append_message(conv.roles[1], None)
-    prompt = conv.get_prompt()
-    stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2
+    images = [Image.open(args.image_file).convert("RGB")] #PIL Image 318*500
+    images_tensor = process_images(images, image_processor, model.config).to(model.device, dtype=torch.float16) #返回处理完毕的（resize crop等）图片tensor
+    # conv是conversation
+    conv = conv_templates[args.conv_mode].copy() #Conversation(system="A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.", roles=('USER', 'ASSISTANT'), messages=[], offset=0, sep_style=<SeparatorStyle.TWO: 2>, sep=' ', sep2='</s>', version='v1', skip_next=False)
+    conv.append_message(conv.roles[0], DEFAULT_IMAGE_TOKEN + "\n" + args.prompt) #加入到conv类的message属性中： ['USER', '<image>\nWho is the author of this book?\nAnswer the question using a single word or phrase.']
+    conv.append_message(conv.roles[1], None)  #conv.roles[0]： user   conv.roles[0]：assistance即为模型的输入， inference为none
+    prompt = conv.get_prompt()  #合并起来 A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: <image> Who is the author of this book?Answer the question using a single word or phrase. ASSISTANT:
+    stop_str = conv.sep if conv.sep_style != SeparatorStyle.TWO else conv.sep2 #'</s>' 什么时候结束输入
     # Input
     input_ids = (tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).cuda())
     stopping_criteria = KeywordsStoppingCriteria([stop_str], tokenizer, input_ids)

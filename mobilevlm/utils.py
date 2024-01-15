@@ -37,37 +37,55 @@ def expand2square(pil_img, background_color):
 
 
 def process_images(images, image_processor, model_cfg):
-    image_aspect_ratio = getattr(model_cfg, "image_aspect_ratio", None)
+    image_aspect_ratio = getattr(model_cfg, "image_aspect_ratio", None) #pad
     new_images = []
     if image_aspect_ratio == 'pad':
         for image in images:
-            image = expand2square(image, tuple(int(x*255) for x in image_processor.image_mean))
-            image = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
+            '''
+            expand2square(image, tuple(int(x*255) for x in image_processor.image_mean)) 这一步将每个图像扩展到正方形。这通常是为了避免在调整图像大小时扭曲原始图像的纵横比。
+            扩展的颜色为 image_processor.image_mean 指定的颜色，这个颜色值是从标准化处理中获取的均值。int(x*255) 将均值从标准化的[0,1]范围转换回原始的[0,255]颜色空间。
+            
+            返回的 ['pixel_values'][0] 是预处理后的图像张量，通常具有形状 [3, height, width]，其中 3 代表颜色通道（RGB），height 和 width 是处理后的图像尺寸
+            '''
+            image = expand2square(image, tuple(int(x*255) for x in image_processor.image_mean)) #500*500
+            image = image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0] #3,336,336
             new_images.append(image)
     else:
         return image_processor(images, return_tensors='pt')['pixel_values']
     if all(x.shape == new_images[0].shape for x in new_images):
-        new_images = torch.stack(new_images, dim=0)
+        new_images = torch.stack(new_images, dim=0) #合并image tensor list
     return new_images
 
 
 def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX, return_tensors=None):
     prompt_chunks = [tokenizer(chunk).input_ids for chunk in prompt.split('<image>')]
-
+    # 分成两个部分，一部分用来处理前要提示，另一部分用来处理真正的输入
+    # "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: "
+    # 'Who is the author of this book? Answer the question using a single word or phrase. ASSISTANT:'
+    # 按照'<image>' token分，分完就没有'<image>' token了
     def insert_separator(X, sep):
+        '''
+        zip(X, [sep]*len(X)) 这个表达式创建了一个迭代器，它将列表 X 中的每个元素与重复的分隔符列表 [sep] * len(X) 配对。
+        例如，如果 X = [1, 2, 3] 并且 sep = '-'，那么 zip 函数会产生 [(1, '-'), (2, '-'), (3, '-')]
+
+        [ele for sublist in ... for ele in sublist] 是一个列表推导式，用于将 zip 函数的结果展平成一个列表。
+        这里，它首先遍历 zip 的每个元素（每个元素是一个元组），然后遍历这些元组中的元素，将它们添加到一个新列表中
+
+        [:-1] 这部分代码移除了结果列表中的最后一个元素。因为 zip 操作在列表 X 的每个元素后都加上了分隔符 sep，所以最后一个分隔符是多余的。
+        '''
         return [ele for sublist in zip(X, [sep]*len(X)) for ele in sublist][:-1]
 
     input_ids = []
     offset = 0
-    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id:
+    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id: #tokenizer.bos_token_id=1
         offset = 1
         input_ids.append(prompt_chunks[0][0])
 
-    for x in insert_separator(prompt_chunks, [image_token_index] * (offset + 1)):
-        input_ids.extend(x[offset:])
+    for x in insert_separator(prompt_chunks, [image_token_index] * (offset + 1)): #image_token_index -200
+        input_ids.extend(x[offset:]) #作用是加上 -200 这个图片 token
 
     if return_tensors is not None:
-        if return_tensors == 'pt':
+        if return_tensors == 'pt': #'pt' 通常代表 PyTorch
             return torch.tensor(input_ids, dtype=torch.long)
         raise ValueError(f'Unsupported tensor type: {return_tensors}')
     return input_ids

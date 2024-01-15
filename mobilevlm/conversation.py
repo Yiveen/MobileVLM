@@ -249,6 +249,10 @@ conv_vicuna_v0 = Conversation(
     sep="###",
 )
 
+
+'''
+有一个conv的类，用来包装这些信息
+'''
 conv_vicuna_v1 = Conversation(
     system="A chat between a curious user and an artificial intelligence assistant. "
     "The assistant gives helpful, detailed, and polite answers to the user's questions.",

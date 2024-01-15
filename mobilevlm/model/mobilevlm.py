@@ -13,7 +13,7 @@ class MobileVLMMetaModel:
     def __init__(self, config):
         super(MobileVLMMetaModel, self).__init__(config)
         if hasattr(config, "mm_vision_tower"):  
-            self.vision_tower = build_vision_tower(config, delay_load=False)
+            self.vision_tower = build_vision_tower(config, delay_load=False) #delay_load 创建模型的时候就loadpretrain模型
             self.mm_projector = build_vision_projector(config)
 
     def get_vision_tower(self):
@@ -57,17 +57,21 @@ class MobileVLMMetaForCausalLM(ABC):
         return self.get_model().get_vision_tower()
 
     def encode_images(self, images):
-        image_features = self.get_model().get_vision_tower()(images)
+        image_features = self.get_model().get_vision_tower()(images) # （1，576，1024）
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
         self, input_ids, attention_mask, past_key_values, labels, images
     ):
+        '''
+        attention_mask, past_key_values, labels, images 是
+
+        '''
         vision_tower = self.get_vision_tower()
-        if vision_tower is None or images is None or input_ids.shape[1] == 1:
+        if vision_tower is None or images is None or input_ids.shape[1] == 1: #input_ids.shape[1] == 1 说明是后续的
             if past_key_values is not None and vision_tower is not None and images is not None and input_ids.shape[1] == 1:
-                attention_mask = torch.ones((attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), dtype=attention_mask.dtype, device=attention_mask.device)
+                attention_mask = torch.ones((attention_mask.shape[0], past_key_values[-1][-1].shape[-2] + 1), dtype=attention_mask.dtype, device=attention_mask.device) #返回一个当前所有的token的mask，全是1
             return input_ids, attention_mask, past_key_values, None, labels
 
         if type(images) is list or images.ndim == 5:
@@ -77,14 +81,14 @@ class MobileVLMMetaForCausalLM(ABC):
             image_features = torch.split(image_features, split_sizes, dim=0)
             image_features = [x.flatten(0, 1) for x in image_features]
         else:
-            image_features = self.encode_images(images)
+            image_features = self.encode_images(images) #（1，3，336，336）->（1，144，2048）
 
         new_input_embeds = []
         new_labels = [] if labels is not None else None
         cur_image_idx = 0
         for batch_idx, cur_input_ids in enumerate(input_ids):
             if (cur_input_ids == IMAGE_TOKEN_INDEX).sum() == 0:
-                # multimodal LLM, but the current sample is not multimodal
+                # multimodal LLM, but the current sample is not multimodal 意思是没有图片的token输入
                 # FIXME: this is a hacky fix, for deepspeed zero3 to work
                 half_len = cur_input_ids.shape[0] // 2
                 cur_image_features = image_features[cur_image_idx]
@@ -96,16 +100,16 @@ class MobileVLMMetaForCausalLM(ABC):
                     new_labels.append(labels[batch_idx])
                 cur_image_idx += 1
                 continue
-            image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
+            image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0] #第多少个是image的tokens
             cur_new_input_embeds = []
             if labels is not None:
                 cur_labels = labels[batch_idx]
                 cur_new_labels = []
                 assert cur_labels.shape == cur_input_ids.shape
             while image_token_indices.numel() > 0:
-                cur_image_features = image_features[cur_image_idx]
-                image_token_start = image_token_indices[0]
-                if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
+                cur_image_features = image_features[cur_image_idx] # cur_image_idx = 0 , image_feature是（1，144，2048），所以[0]只是把（144，2048）取出来了
+                image_token_start = image_token_indices[0] # 35
+                if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False): #tune_mm_mlp_adapter is False
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start-1]).detach())
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[image_token_start-1:image_token_start]))
                     cur_new_input_embeds.append(cur_image_features)
@@ -116,8 +120,8 @@ class MobileVLMMetaForCausalLM(ABC):
                         cur_new_labels.append(cur_labels[image_token_start:image_token_start+1])
                         cur_labels = cur_labels[image_token_start+2:]
                 else:
-                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start]))
-                    cur_new_input_embeds.append(cur_image_features)
+                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids[:image_token_start])) #self.model.embed_tokens （32000，2048） 把<img_batch>前面的token feature取出来了
+                    cur_new_input_embeds.append(cur_image_features) #把img feature append进去
                     if labels is not None:
                         cur_new_labels.append(cur_labels[:image_token_start])
                         cur_new_labels.append(torch.full((cur_image_features.shape[0],), IGNORE_INDEX, device=labels.device, dtype=labels.dtype))
@@ -126,23 +130,23 @@ class MobileVLMMetaForCausalLM(ABC):
                 if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
                     cur_input_ids = cur_input_ids[image_token_start+2:]
                 else:
-                    cur_input_ids = cur_input_ids[image_token_start+1:]
-                image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0]
+                    cur_input_ids = cur_input_ids[image_token_start+1:] # 图片tokens的后半部分
+                image_token_indices = torch.where(cur_input_ids == IMAGE_TOKEN_INDEX)[0] # =0 跳出循环，循环就是说比如可以输入多张图片，这个情况下，我们每次都找到图片所在的位置作为分界
             if cur_input_ids.numel() > 0:
                 if getattr(self.config, 'tune_mm_mlp_adapter', False) and getattr(self.config, 'mm_use_im_start_end', False):
                     cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids).detach())
                 else:
-                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids))
+                    cur_new_input_embeds.append(self.get_model().embed_tokens(cur_input_ids)) #把后面的也放进去了
                 if labels is not None:
                     cur_new_labels.append(cur_labels)
             cur_new_input_embeds = [x.to(device=self.device) for x in cur_new_input_embeds]
-            cur_new_input_embeds = torch.cat(cur_new_input_embeds, dim=0)
+            cur_new_input_embeds = torch.cat(cur_new_input_embeds, dim=0) # 拼起来（205，2048）
             new_input_embeds.append(cur_new_input_embeds)
             if labels is not None:
                 cur_new_labels = torch.cat(cur_new_labels, dim=0)
                 new_labels.append(cur_new_labels)
 
-        if any(x.shape != new_input_embeds[0].shape for x in new_input_embeds):
+        if any(x.shape != new_input_embeds[0].shape for x in new_input_embeds): #之后预测下一个的时候的走的分支
             max_len = max(x.shape[0] for x in new_input_embeds)
 
             new_input_embeds_align = []
@@ -169,13 +173,13 @@ class MobileVLMMetaForCausalLM(ABC):
                 attention_mask = torch.stack(new_attention_mask, dim=0)
                 assert attention_mask.shape == new_labels.shape
         else:
-            new_input_embeds = torch.stack(new_input_embeds, dim=0)
+            new_input_embeds = torch.stack(new_input_embeds, dim=0) #（1，205，2048）
             if labels is not None:
                 new_labels  = torch.stack(new_labels, dim=0)
 
             if attention_mask is not None:
-                new_attn_mask_pad_left = torch.full((attention_mask.shape[0], new_input_embeds.shape[1] - input_ids.shape[1]), True, dtype=attention_mask.dtype, device=attention_mask.device)
-                attention_mask = torch.cat((new_attn_mask_pad_left, attention_mask), dim=1)
+                new_attn_mask_pad_left = torch.full((attention_mask.shape[0], new_input_embeds.shape[1] - input_ids.shape[1]), True, dtype=attention_mask.dtype, device=attention_mask.device) #attention_mask.shape[0]是batch size, new_input_embeds.shape[1]是加上了image 的token， input没有image token
+                attention_mask = torch.cat((new_attn_mask_pad_left, attention_mask), dim=1) #(1,62) - > (1,205)
                 assert attention_mask.shape == new_input_embeds.shape[:2]
 
         return None, attention_mask, past_key_values, new_input_embeds, new_labels
@@ -245,22 +249,85 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
         kwargs['torch_dtype'] = torch.float16
     
     tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
-    model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs)
+    model = MobileLlamaForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, **kwargs) #导入模型和tokenizer
 
-    mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False)
-    mm_use_im_patch_token = getattr(model.config, "mm_use_im_patch_token", True)
+    mm_use_im_start_end = getattr(model.config, "mm_use_im_start_end", False) #False
+    mm_use_im_patch_token = getattr(model.config, "mm_use_im_patch_token", True) #设置不存在的时候的默认值，并不是设置某个数值 #False
     if mm_use_im_patch_token:
         tokenizer.add_tokens([DEFAULT_IMAGE_PATCH_TOKEN], special_tokens=True)
     if mm_use_im_start_end:
-        tokenizer.add_tokens([DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN], special_tokens=True)
-    model.resize_token_embeddings(len(tokenizer))
+        tokenizer.add_tokens([DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN], special_tokens=True) #都不添加
+    model.resize_token_embeddings(len(tokenizer)) #加入图片的特殊token，给新加入的token提供embedding
 
     vision_tower = model.get_vision_tower()
+    '''
+    CLIPVisionTower(
+  (vision_tower): CLIPVisionModel(
+    (vision_model): CLIPVisionTransformer(
+      (embeddings): CLIPVisionEmbeddings(
+        (patch_embedding): Conv2d(3, 1024, kernel_size=(14, 14), stride=(14, 14), bias=False)
+        (position_embedding): Embedding(577, 1024)
+      )
+      (pre_layrnorm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+      (encoder): CLIPEncoder(
+        (layers): ModuleList(
+          (0-23): 24 x CLIPEncoderLayer(
+            (self_attn): CLIPAttention(
+              (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
+              (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
+              (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
+              (out_proj): Linear(in_features=1024, out_features=1024, bias=True)
+            )
+            (layer_norm1): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+            (mlp): CLIPMLP(
+              (activation_fn): QuickGELUActivation()
+              (fc1): Linear(in_features=1024, out_features=4096, bias=True)
+              (fc2): Linear(in_features=4096, out_features=1024, bias=True)
+            )
+            (layer_norm2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+          )
+        )
+      )
+      (post_layernorm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    )
+  )
+)
+    '''
+
     if not vision_tower.is_loaded:
         vision_tower.load_model()
     vision_tower.to(device=device, dtype=torch.float16)
     image_processor = vision_tower.image_processor
-
+    '''
+    CLIPImageProcessor {
+  "crop_size": {
+    "height": 336,
+    "width": 336
+  },
+  "do_center_crop": true,
+  "do_convert_rgb": true,
+  "do_normalize": true,
+  "do_rescale": true,
+  "do_resize": true,
+  "feature_extractor_type": "CLIPFeatureExtractor",
+  "image_mean": [
+    0.48145466,
+    0.4578275,
+    0.40821073
+  ],
+  "image_processor_type": "CLIPImageProcessor",
+  "image_std": [
+    0.26862954,
+    0.26130258,
+    0.27577711
+  ],
+  "resample": 3,
+  "rescale_factor": 0.00392156862745098,
+  "size": {
+    "shortest_edge": 336
+  }
+}
+    '''
     if hasattr(model.config, "max_sequence_length"):
         context_len = model.config.max_sequence_length
     else:

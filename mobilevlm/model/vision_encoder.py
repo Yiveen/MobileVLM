@@ -19,14 +19,14 @@ class CLIPVisionTower(nn.Module):
 
     def load_model(self):
         self.image_processor = CLIPImageProcessor.from_pretrained(self.vision_tower_name)
-        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name)
+        self.vision_tower = CLIPVisionModel.from_pretrained(self.vision_tower_name) #load clip mpretrained model
         self.vision_tower.requires_grad_(False)
         self.is_loaded = True
     
     def feature_select(self, image_forward_outs):
-        image_features = image_forward_outs.hidden_states[self.select_layer]
-        if self.select_feature == 'patch':
-            image_features = image_features[:, 1:]
+        image_features = image_forward_outs.hidden_states[self.select_layer] #选-2层的
+        if self.select_feature == 'patch': #为patch
+            image_features = image_features[:, 1:] #（1，576，1024）
         elif self.select_feature == 'cls_patch':
             image_features = image_features
         else:
@@ -42,7 +42,7 @@ class CLIPVisionTower(nn.Module):
                 image_feature = self.feature_select(image_forward_out).to(image.dtype)
                 image_features.append(image_feature)
         else:
-            image_forward_outs = self.vision_tower(images.to(device=self.device, dtype=self.dtype), output_hidden_states=True)
+            image_forward_outs = self.vision_tower(images.to(device=self.device, dtype=self.dtype), output_hidden_states=True) #(1,3,336,336) -> 得到的是每一层的输出tensor，比如 last_hidden_state的维度是(1,577,1024)
             image_features = self.feature_select(image_forward_outs).to(images.dtype)
         return image_features
 
