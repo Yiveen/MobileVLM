@@ -260,41 +260,9 @@ def load_pretrained_model(model_path, load_8bit=False, load_4bit=False, device_m
     model.resize_token_embeddings(len(tokenizer)) #加入图片的特殊token，给新加入的token提供embedding
 
     vision_tower = model.get_vision_tower()
-    '''
-    CLIPVisionTower(
-  (vision_tower): CLIPVisionModel(
-    (vision_model): CLIPVisionTransformer(
-      (embeddings): CLIPVisionEmbeddings(
-        (patch_embedding): Conv2d(3, 1024, kernel_size=(14, 14), stride=(14, 14), bias=False)
-        (position_embedding): Embedding(577, 1024)
-      )
-      (pre_layrnorm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
-      (encoder): CLIPEncoder(
-        (layers): ModuleList(
-          (0-23): 24 x CLIPEncoderLayer(
-            (self_attn): CLIPAttention(
-              (k_proj): Linear(in_features=1024, out_features=1024, bias=True)
-              (v_proj): Linear(in_features=1024, out_features=1024, bias=True)
-              (q_proj): Linear(in_features=1024, out_features=1024, bias=True)
-              (out_proj): Linear(in_features=1024, out_features=1024, bias=True)
-            )
-            (layer_norm1): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
-            (mlp): CLIPMLP(
-              (activation_fn): QuickGELUActivation()
-              (fc1): Linear(in_features=1024, out_features=4096, bias=True)
-              (fc2): Linear(in_features=4096, out_features=1024, bias=True)
-            )
-            (layer_norm2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
-          )
-        )
-      )
-      (post_layernorm): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
-    )
-  )
-)
-    '''
-
-    if not vision_tower.is_loaded:
+    if 'v2' in getattr(model.config, "mm_projector_type", "ldpnet"):
+        vision_tower.load_image_processor()
+    elif not vision_tower.is_loaded:
         vision_tower.load_model()
     vision_tower.to(device=device, dtype=torch.float16)
     image_processor = vision_tower.image_processor

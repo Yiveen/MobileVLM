@@ -1,59 +1,20 @@
-<h1 align="center">
-MobileVLM: Vision Language Model for Mobile Devices
-</h1>
+# <center> MobileVLM: A Fast, Strong and Open <br> Vision Language Assistant for Mobile Devices
 
-<h5 align="center">
-
-[![hf_space](https://img.shields.io/badge/🤗-MTGV%20HuggingFace-blue.svg)](https://huggingface.co/mtgv)
+<a href='https://github.com/Meituan-AutoML/MobileVLM'><img src='https://img.shields.io/badge/Project-Page-Green'></a>
+<a href='https://arxiv.org/abs/2312.16886'><img src='https://img.shields.io/badge/Paper-Arxiv-red'></a>
 [![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg)](https://github.com/tatsu-lab/stanford_alpaca/blob/main/LICENSE)
-[![github](https://img.shields.io/badge/-Github-black?logo=github)](https://github.com/Meituan-AutoML/MobileVLM.git)[![github](https://img.shields.io/github/stars/Meituan-AutoML/MobileVLM.svg?style=social)](https://github.com/Meituan-AutoML/MobileVLM.git)  
 
-</h5>
+We present MobileVLM, a competent multimodal vision language model (MMVLM) targeted to run on mobile devices. It is an amalgamation of a myriad of architectural designs and techniques that are mobile-oriented, which comprises a set of language models at the scale of 1.4B and 2.7B parameters, trained from scratch, a multimodal vision model that is pre-trained in the CLIP fashion, cross-modality interaction via an efficient projector. We evaluate MobileVLM on several typical VLM benchmarks. Our models demonstrate on par performance compared with a few much larger models. More importantly, we measure the inference speed on both a Qualcomm Snapdragon 888 CPU and an NVIDIA Jeston Orin GPU, and we obtain state-of-the-art performance of 21.5 tokens and 65.3 tokens per second, respectively.
 
-* **MobileVLM V2: Faster and Stronger Baseline for Vision Language Model** <br>
-  [![arXiv](https://img.shields.io/badge/Arxiv-2402.03766-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2402.03766)
-  [![BibTex](https://img.shields.io/badge/📜-MobileVLM%20V2%20BibTex-Green.svg)](https://github.com/Meituan-AutoML/MobileVLM?tab=readme-ov-file#%EF%B8%8F-reference)
+<p align="center"><img src="assets/mobilevlm_arch.png"></p>
 
-  <details> 
-  <summary> 📌 Take a quick look at our MobileVLM V2 architecture </summary> 
-  
-  <br>
-  We introduce MobileVLM V2, a family of significantly improved vision language models upon MobileVLM, which proves that a delicate orchestration of novel architectural design, an improved training scheme tailored for mobile VLMs, and rich high-quality dataset curation can substantially benefit VLMs’ performance. Specifically, MobileVLM V2 1.7B achieves better or on-par performance on standard VLM benchmarks compared with much larger VLMs at the 3B scale. Notably, our 3B model outperforms a large variety of VLMs at the 7B+ scale.
-  
-  <br>
-  <p align="center"><img style="border-radius: 0.7125em;" width = "450" src="assets/mobilevlm_v2_arch.png"></p>
-
-  *MobileVLM V2’s architecture. X<sub>v</sub> and X<sub>q</sub> indicate image and language instruction, respectively, and Y<sub>a</sub> refers to the text response from the language model MobileLLaMA. The diagram in the lower right corner is a detailed description of LDPv2, i.e., the lightweight downsample projector v2.*
-  
-  <br>
-  </details>
-
-* **MobileVLM: A Fast, Strong and Open Vision Language Assistant for Mobile Devices** <br>
-  [![arXiv](https://img.shields.io/badge/Arxiv-2312.16886-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2312.16886) 
-  [![BibTex](https://img.shields.io/badge/📜-MobileVLM%20BibTex-Green.svg)](https://github.com/Meituan-AutoML/MobileVLM?tab=readme-ov-file#%EF%B8%8F-reference)
-
-  <details> 
-  <summary> 📌 Take a quick look at our MobileVLM architecture </summary> 
-
-  <br>
-  We present MobileVLM, a competent multimodal vision language model (MMVLM) targeted to run on mobile devices. It is an amalgamation of a myriad of architectural designs and techniques that are mobile-oriented, which comprises a set of language models at the scale of 1.4B and 2.7B parameters, trained from scratch, a multimodal vision model that is pre-trained in the CLIP fashion, cross-modality interaction via an efficient projector. We evaluate MobileVLM on several typical VLM benchmarks. Our models demonstrate on par performance compared with a few much larger models. More importantly, we measure the inference speed on both a Qualcomm Snapdragon 888 CPU and an NVIDIA Jeston Orin GPU, and we obtain state-of-the-art performance of 21.5 tokens and 65.3 tokens per second, respectively.
-  
-  <br>
-  <p align="center"><img style="border-radius: 0.7125em;" width = "450" src="assets/mobilevlm_arch.png"></p>
-  
-  *The MobileVLM architecture (right) utilizes MobileLLaMA as its language model, intakes X<sub>v</sub> and X<sub>q</sub> which are image and language instructions as respective inputs and gives Y<sub>a</sub> as the output language response. LDP refers to a lightweight downsample projector.*
-
-  <br>
-  </details>
-
+The MobileVLM architecture (right) utilizes MobileLLaMA as its language model, intakes $\mathbf{X}_v$ and $\mathbf{X}_q$ which are image and language instructions as respective inputs and gives $\mathbf{Y}_a$ as the output language response. LDP refers to a lightweight downsample projector (left).
 
 ## 📸 Release
 
 * ⏳ MobileLLaMA Pre-training code.
-* ⏳ MobileVLM V2 training data and code are being sorted out.
-* **`Feb. 06th, 2024`**: 🔥🔥🔥 **MobileVLM V2** is out! Paper [here](https://arxiv.org/abs/2402.03766)! The inference code of MobileVLM V2 is available now! Our MobileVLM V2 weights are publicly avaliable on the HuggingFace website. Enjoy [them](https://huggingface.co/mtgv/) !
-* **`Feb. 06th, 2024`**: The SFT code and dataset of MobileLLaMA are released now! You can train your own chat model.
-* **`Jan. 23rd, 2024`**: 🚀🚀🚀 **MobileVLM** is officially supported by [`llama.cpp`](https://github.com/ggerganov/llama.cpp/blob/master/examples/llava/MobileVLM-README.md) now ! Have a try !
+* ⏳ MobileLLaMA SFT training code.
+* **`Jan. 23th, 2024`**: 🚀🚀🚀 **MobileVLM** is officially supported by [`llama.cpp`](https://github.com/ggerganov/llama.cpp/blob/master/examples/llava/MobileVLM-README.md) now ! Have a try !
 * **`Jan. 15th, 2024`**: Customized `llama.cpp` for **MobileVLM** and its [deployment instruction](#deployment-on-mobile-devices) on mobile devices.
 * **`Jan. 11st, 2024`**: The training and evaluation codes of MobileVLM are available now! Follow these  step-by-step instructions below to easily train your own mobileVLM in **5 hours** ⚡️ !
 * **`Dec. 31st, 2023`**: Our MobileVLM weights are uploaded on the HuggingFace website. We also provide inference examples for the MobileLLaMA/MobileVLM model so that anyone can enjoy [them](https://huggingface.co/mtgv/) early.
@@ -62,20 +23,12 @@ MobileVLM: Vision Language Model for Mobile Devices
 
 ## 🦙 Model Zoo
 
-#### MobileVLM Family
-| Model | LLM | GQA | SQA<sup>I</sup> | VQA<sup>T</sup> | POPE | MME<sup>P</sup>  | MMB<sup>dev</sup> | Avg. |
-|-------|-------|---|-------|-------|-------|-------|-------|-------|
-| <div style="width: 93pt"> [MobileVLM-1.7B](https://huggingface.co/mtgv/MobileVLM-1.7B)    | <div style="width: 91pt"> [MobileLLaMA 1.4B](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Chat) | 56.1   | 57.3  | 41.5  | 84.5 | 1196.2 | 53.2    | 58.7 |
-| [MobileVLM V2 1.7B](https://huggingface.co/mtgv/MobileVLM_V2-1.7B) | [MobileLLaMA 1.4B](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Chat) | **59.3**   | **66.7**  | **52.1**  | **84.3** | **1302.8** | **57.7**    | **64.2** |
-| [MobileVLM-3B](https://huggingface.co/mtgv/MobileVLM-3B)      | [MobileLLaMA 2.7B](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Chat) |  59.0   | 61.2  | 47.5  | 84.9 | 1288.9 | 59.6    | 62.8 |
-| [MobileVLM V2 3B](https://huggingface.co/mtgv/MobileVLM_V2-3B)   | [MobileLLaMA 2.7B](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Chat) |  **61.1**   | **70.0**  | **57.5**  | **84.7** | **1440.5** | **63.2**    | **68.1** |
-| [MobileVLM V2 7B](https://huggingface.co/mtgv/MobileVLM_V2-7B)   | [Vicuna-7B](https://huggingface.co/lmsys/vicuna-7b-v1.5)       |  **62.6**   | **74.8**  | **62.3**  | **85.3** | **1560.7** | **69.2**    | **72.1** |
-
-#### MobileLLaMA Family
-  - [MobileLLaMA-1.4B-Base](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Base)
-  - [MobileLLaMA-1.4B-Chat](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Chat)
-  - [MobileLLaMA-2.7B-Base](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Base)
-  - [MobileLLaMA-2.7B-Chat](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Chat)
+- [MobileLLaMA-1.4B-Base](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Base)
+- [MobileLLaMA-1.4B-Chat](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Chat)
+- [MobileLLaMA-2.7B-Base](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Base)
+- [MobileLLaMA-2.7B-Chat](https://huggingface.co/mtgv/MobileLLaMA-2.7B-Chat)
+- [MobileVLM-1.7B](https://huggingface.co/mtgv/MobileVLM-1.7B)
+- [MobileVLM-3B](https://huggingface.co/mtgv/MobileVLM-3B)
 
 🔔 **Usage and License Notices**: This project utilizes certain datasets and checkpoints that are subject to their respective original licenses. Users must comply with all terms and conditions of these original licenses. This project is licensed permissively under the Apache 2.0 license and does not impose any additional constraints. <sup>[LLaVA](https://github.com/haotian-liu/LLaVA/tree/main?tab=readme-ov-file#release)</sup>
 
@@ -120,12 +73,12 @@ print(tokenizer.decode(generation_output[0]))
 ```
 * For more advanced usage, please follow the [transformers LLaMA documentation](https://huggingface.co/docs/transformers/main/model_doc/llama).
 
-#### Example for MobileVLM/MobileVLM V2 model inference
+#### Example for MobileVLM model inference
 
 ```python
 from scripts.inference import inference_once
-# model_path = "mtgv/MobileVLM-1.7B" # MobileVLM
-model_path = "mtgv/MobileVLM_V2-1.7B" # MobileVLM V2
+
+model_path = "mtgv/MobileVLM-1.7B"
 image_file = "assets/samples/demo.jpg"
 prompt_str = "Who is the author of this book?\nAnswer the question using a single word or phrase."
 # (or) What is the title of this book?
@@ -148,17 +101,6 @@ inference_once(args)
 ```
 
 ## 🪜 Step-by-step Tutorial
-
-### MobileVLM V2
-🏃 Training code and user guidelines are coming soon.
-
-### MobileLLaMA
-
-The SFT(supervised fine-tuning) process of MobileLLaMA: 
-  - please refer to [MobileLLaMA_SFT.md](https://github.com/Meituan-AutoML/MobileVLM/blob/main/mobilellama/sft/MobileLLaMA_SFT.md) for the env, dataset and training code of our MobileLLaMA SFT.
-  - this training process takes around **3~5 hours** for MobileLLaMA 1.4B/2.7B on 8x A100 (80G) 
-
-Note: You may skip MobileLLaMA training processes and directly start with MobileVLM, leveraging our pre-trained MobileLLaMA model from huggingface website (🤗 [1.7B](https://huggingface.co/mtgv/MobileLLaMA-1.4B-Chat), [2.7B](https://huggingface.co/mtgv/MobileLLaMA-3B-Chat)). .
 
 ### MobileVLM
 
@@ -305,14 +247,6 @@ If you find MobileVLM or MobileLLaMA useful in your research or applications, pl
   journal={arXiv preprint arXiv:2312.16886},
   year={2023}
 }
-
-@article{chu2024mobilevlm,
-  title={MobileVLM V2: Faster and Stronger Baseline for Vision Language Model},
-  author={Chu, Xiangxiang and Qiao, Limeng and Zhang, Xinyu and Xu, Shuang and Wei, Fei and Yang, Yang and Sun, Xiaofei and Hu, Yiming and Lin, Xinyang and Zhang, Bo and Shen, Chunhua},
-  journal={arXiv preprint arXiv:2402.03766},
-  year={2024}
-}
-
 ```
 
 
