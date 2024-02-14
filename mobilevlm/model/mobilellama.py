@@ -82,7 +82,7 @@ class MobileLlamaForCausalLM(LlamaForCausalLM, MobileVLMMetaForCausalLM):
         image = (1,3,336,336)
         其余none
         '''
-
+        #id就是id，但是attention mask是加了图片token的，id里面图片token只有一个，就算200
         input_ids, attention_mask, past_key_values, inputs_embeds, labels = \
             self.prepare_inputs_labels_for_multimodal(input_ids, attention_mask, past_key_values, labels, images)
 
@@ -145,7 +145,7 @@ class MobileLlamaForCausalLM(LlamaForCausalLM, MobileVLMMetaForCausalLM):
         self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
     ):
         if past_key_values:
-            input_ids = input_ids[:, -1:]
+            input_ids = input_ids[:, -1:] #保留最后一列，仍然是二维数组
 
         # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
         if inputs_embeds is not None and past_key_values is None:

@@ -77,11 +77,11 @@ def tokenizer_image_token(prompt, tokenizer, image_token_index=IMAGE_TOKEN_INDEX
 
     input_ids = []
     offset = 0
-    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id: #tokenizer.bos_token_id=1
+    if len(prompt_chunks) > 0 and len(prompt_chunks[0]) > 0 and prompt_chunks[0][0] == tokenizer.bos_token_id: #prompt_chunks[0][0]是prompt的第一个id，一定是1tokenizer.bos_token_id=1
         offset = 1
         input_ids.append(prompt_chunks[0][0])
 
-    for x in insert_separator(prompt_chunks, [image_token_index] * (offset + 1)): #image_token_index -200
+    for x in insert_separator(prompt_chunks, [image_token_index] * (offset + 1)): #[-200, -200]  image_token_index -200
         input_ids.extend(x[offset:]) #作用是加上 -200 这个图片 token
 
     if return_tensors is not None:

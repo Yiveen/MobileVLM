@@ -4,11 +4,33 @@ from typing import List, Optional
 from torch.utils.data import Sampler
 from transformers.trainer import has_length
 from transformers.utils import is_sagemaker_mp_enabled, is_apex_available
+from .optimization import Adafactor, get_scheduler
+from .pytorch_utils import ALL_LAYERNORM_LAYERS
 if is_sagemaker_mp_enabled():
     from transformers.trainer_pt_utils import smp_forward_backward
 if is_apex_available():
     from apex import amp
+from .trainer_pt_utils import (
+    DistributedTensorGatherer,
+    IterableDatasetShard,
+    LabelSmoother,
+    LengthGroupedSampler,
+    SequentialDistributedSampler,
+    distributed_broadcast_scalars,
+    distributed_concat,
+    find_batch_size,
+    get_model_param_count,
+    get_module_class_from_name,
+    get_parameter_names,
+    nested_concat,
+    nested_detach,
+    nested_numpify,
+    nested_xla_mesh_reduce,
+    reissue_pt_warnings,
+    remove_dummy_checkpoint,
+)
 
+from mobilevlm.model.policy import PolicyModel
 
 def split_to_even_chunks(indices, lengths, num_chunks):
     """
@@ -136,7 +158,7 @@ class VLMTrainer(Trainer):
 
         Args:
             model (`nn.Module`):
-                The model to train.
+                The compute_lossmodel to train.
             inputs (`Dict[str, Union[torch.Tensor, Any]]`):
                 The inputs and targets of the model.
 
@@ -168,3 +190,84 @@ class VLMTrainer(Trainer):
             self.accelerator.backward(loss)
 
         return loss.detach() / self.args.gradient_accumulation_steps
+
+class VIMAVLMTrainer(Trainer):
+
+    def _get_train_sampler(self) -> Optional[torch.utils.data.Sampler]:
+        if self.train_dataset is None or not has_length(self.train_dataset):
+            return None
+
+        if self.args.group_by_modality_length:
+            lengths = self.train_dataset.modality_lengths
+            return LengthGroupedSampler(
+                # TODO: seems that we should not have gradient_accumulation_steps
+                # self.args.train_batch_size * self.args.gradient_accumulation_steps,
+                self.args.train_batch_size,
+                world_size=self.args.world_size,
+                lengths=lengths,
+                group_by_modality=True,
+            )
+        else:
+            return super()._get_train_sampler()
+    def create_optimizer(self):
+        """
+        重写Trainer本身的方法，只是对一些用不到的情况做了一些简化
+        """
+        if self.optimizer is None:
+            decay_parameters = get_parameter_names(self.model, ALL_LAYERNORM_LAYERS)
+            decay_parameters = [name for name in decay_parameters if "bias" not in name]
+            optimizer_grouped_parameters = [
+                {
+                    "params": [
+                        p for n, p in self.model.named_parameters() if (n in decay_parameters and p.requires_grad)
+                    ],
+                    "weight_decay": self.args.weight_decay,
+                },
+                {
+                    "params": [
+                        p for n, p in self.model.named_parameters() if (n not in decay_parameters and p.requires_grad)
+                    ],
+                    "weight_decay": 0.0,
+                },
+            ]
+
+            optimizer_cls, optimizer_kwargs = Trainer.get_optimizer_cls_and_kwargs(self.args)
+            self.optimizer = optimizer_cls(optimizer_grouped_parameters, **optimizer_kwargs) #和我们正常创建一个optimizer本质一样，但这里考虑了更多的情况，更加general，现在是AdamW
+
+        return self.optimizer
+    #TODO; 目前不需要scheduler，所以没有重写库里面的scheduler的方法
+    def compute_loss(self, model, inputs, return_outputs=False):
+        """
+        How the loss is computed by Trainer. By default, all models return the loss in the first element.
+
+        Subclass and override for custom behavior.
+        """
+        outputs = model(**inputs)
+        # Save past state if it exists
+        # TODO: this needs to be fixed and made cleaner later.
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+        return (loss, outputs) if return_outputs else loss
+
+    def training_step(self, model, inputs):
+        model.train()
+        inputs = self._prepare_inputs(inputs)
+        with self.compute_loss_context_manager():
+            loss = self.compute_loss(model, inputs)
+        if self.args.n_gpu > 1:
+            loss = loss.mean()
+
+        if self.do_grad_scaling:
+            self.scaler.scale(loss).backward()
+        elif self.use_apex:
+            with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            self.accelerator.backward(loss)
+
+        return loss.detach() / self.args.gradient_accumulation_steps
+
+    #TODO： evaluation_loop， prediction_loop相同思路要写出来，但是目前还用不到, save的函数目前看来用处也不大

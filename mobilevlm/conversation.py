@@ -27,17 +27,18 @@ class Conversation:
     skip_next: bool = False
 
     def get_prompt(self):
-        messages = self.messages
-        if len(messages) > 0 and type(messages[0][1]) is tuple:
+        messages = self.messages #[['USER', '<image>\nPlease point out to me which objects are in this picture.\n Give me their specific names.'], ['ASSISTANT', None]]
+        if len(messages) > 0 and type(messages[0][1]) is tuple: # 比如，这个是带角色的，后面加的取messages[0][1]就不是带角色的("Human", "What are the key differences between renewable and non-renewable energy sources?"),
             messages = self.messages.copy()
             init_role, init_msg = messages[0].copy()
-            init_msg = init_msg[0].replace("<image>", "").strip()
+            init_msg = init_msg[0].replace("<image>", "").strip() #TODO:check init_role, init_msg这两个变量
             if 'mmtag' in self.version:
                 messages[0] = (init_role, init_msg)
                 messages.insert(0, (self.roles[0], "<Image><image></Image>"))
                 messages.insert(1, (self.roles[1], "Received."))
             else:
-                messages[0] = (init_role, "<image>\n" + init_msg)
+                #TODO:检查什么时候应该加<image>这个信息
+                messages[0] = (init_role, "<image>\n" + init_msg) #统一变成这种格式，会加一个image。 后面的message的image信息在前面的处理已经加过了
 
         if self.sep_style == SeparatorStyle.SINGLE:
             ret = self.system + self.sep
@@ -57,7 +58,7 @@ class Conversation:
                         message, _, _ = message
                     ret += role + ": " + message + seps[i % 2]
                 else:
-                    ret += role + ":"
+                    ret += role + ":" #inference那种
         elif self.sep_style == SeparatorStyle.MPT:
             ret = self.system + self.sep
             for role, message in messages:

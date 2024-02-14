@@ -12,9 +12,9 @@ case ${TASK} in
         mkdir -p ${OUTPUT_DIR}
         LANGUAGE_MODEL=$3
         VISION_MODEL=$4
-        bash run.sh ${ARCH} pretrain ${LANGUAGE_MODEL} ${VISION_MODEL} ${OUTPUT_DIR}
+#        bash run.sh ${ARCH} pretrain ${LANGUAGE_MODEL} ${VISION_MODEL} ${OUTPUT_DIR}
         bash run.sh ${ARCH} finetune ${LANGUAGE_MODEL} ${VISION_MODEL} ${OUTPUT_DIR}
-        bash run.sh ${ARCH} test ${OUTPUT_DIR}/mobilevlm-2.finetune
+#        bash run.sh ${ARCH} test ${OUTPUT_DIR}/mobilevlm-2.finetune
     ;;
     "pretrain")
         echo ">>> Start Feature-Alignment Pretrain ..."
@@ -67,7 +67,7 @@ case ${TASK} in
         LANGUAGE_MODEL=$3
         VISION_MODEL=$4
         OUTPUT_DIR=$5
-        OUTPUT_DIR_PT=${OUTPUT_DIR}/mobilevlm-1.pretrain
+        OUTPUT_DIR_PT=${OUTPUT_DIR}/mobilevlm-1.pretrainoptimize
         OUTPUT_DIR_FT=${OUTPUT_DIR}/mobilevlm-2.finetune
         mkdir -p ${OUTPUT_DIR_FT}
         declare -A LR_CONF
@@ -150,7 +150,7 @@ case ${TASK} in
             --bf16 True \
             --output_dir ${OUTPUT_DIR_FT} \
             --num_train_epochs 1 \
-            --per_device_train_batch_size 16 \
+            --per_device_train_batch_size 4 \
             --per_device_eval_batch_size 4 \
             --gradient_accumulation_steps 1 \
             --evaluation_strategy "no" \

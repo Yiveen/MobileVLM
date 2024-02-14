@@ -16,6 +16,7 @@ from mobilevlm.model.mobilellama import MobileLlamaForCausalLM
 from mobilevlm.utils import tokenizer_image_token
 
 local_rank = None
+from trl import SFTTrainer
 
 
 def rank0_print(*args):
@@ -214,7 +215,7 @@ def smart_tokenizer_and_embedding_resize(
             dim=0, keepdim=True)
 
         input_embeddings[-num_new_tokens:] = input_embeddings_avg
-        output_embeddings[-num_new_tokens:] = output_embeddings_avg
+        output_embeddings[-num_new_tokens:] = output_embeddings_avg #将所有嵌入的平均值作为新嵌入的数值
 
 
 def _tokenize_fn(strings: Sequence[str],
@@ -723,14 +724,14 @@ def make_supervised_data_module(tokenizer: transformers.PreTrainedTokenizer,
     data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
     return dict(train_dataset=train_dataset,
                 eval_dataset=None,
-                data_collator=data_collator)
+                data_collator=data_collator) #这里返回了相应的trainer所需要的传入信息
 
 
 def train():
     global local_rank
 
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses() #注意几个args
     local_rank = training_args.local_rank
     compute_dtype = (torch.float16 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
 
@@ -779,7 +780,7 @@ def train():
         from peft import prepare_model_for_kbit_training
         model.config.torch_dtype=(torch.float32 if training_args.fp16 else (torch.bfloat16 if training_args.bf16 else torch.float32))
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=training_args.gradient_checkpointing)
-
+    #添加梯度检查点
     if training_args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -788,6 +789,7 @@ def train():
                 output.requires_grad_(True)
             model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
 
+    #Lora的配置信息
     if training_args.lora_enable:
         from peft import LoraConfig, get_peft_model
         lora_config = LoraConfig(
@@ -805,7 +807,7 @@ def train():
                 model.to(torch.float16)
         rank0_print("Adding LoRA adapters...")
         model = get_peft_model(model, lora_config)
-
+    #不同情况下的tokenizer的加载
     if 'mpt' in model_args.model_name_or_path:
         tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_args.model_name_or_path,
@@ -821,7 +823,7 @@ def train():
             padding_side="right",
             use_fast=False,
         )
-
+    #进行pad token的处理
     if model_args.version == "v0":
         if tokenizer.pad_token is None:
             smart_tokenizer_and_embedding_resize(
@@ -839,7 +841,7 @@ def train():
             conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1"]
 
     if model_args.vision_tower is not None:
-        model.get_model().initialize_vision_modules(model_args=model_args, fsdp=training_args.fsdp)  
+        model.get_model().initialize_vision_modules(model_args=model_args, fsdp=training_args.fsdp)   #随机初始化projector的权重
         
         vision_tower = model.get_vision_tower()
         vision_tower.to(dtype=torch.bfloat16 if training_args.bf16 else torch.float16, device=training_args.device)
@@ -884,8 +886,8 @@ def train():
                     if training_args.bf16 and module.weight.dtype == torch.float32:
                         module = module.to(torch.bfloat16)
 
-    data_module = make_supervised_data_module(tokenizer=tokenizer, data_args=data_args)
-    trainer = VLMTrainer(model=model, tokenizer=tokenizer, args=training_args, **data_module)
+    data_module = make_supervised_data_module(tokenizer=tokenizer, data_args=data_args)      #dataloader在这里
+    trainer = VLMTrainer(model=model, tokenizer=tokenizer, args=training_args, **data_module)  # trainer 包含了dataloader
 
     if list(pathlib.Path(training_args.output_dir).glob("checkpoint-*")):
         trainer.train(resume_from_checkpoint=True)
